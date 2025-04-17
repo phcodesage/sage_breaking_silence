@@ -73,6 +73,16 @@ dependencies {
     implementation("com.google.mlkit:pose-detection:18.0.0-beta3")
     implementation("com.google.mlkit:pose-detection-accurate:18.0.0-beta3")
     
+    // MediaPipe dependencies
+    implementation("com.google.mediapipe:tasks-vision:0.10.0")
+    
+    // TensorFlow Lite dependencies
+    implementation("org.tensorflow:tensorflow-lite:2.12.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.12.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.3")
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.3")
+    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.3")
+    
     // Permissions handling
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     

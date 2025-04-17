@@ -3,6 +3,7 @@ package com.example.breakingsilence.screens
 import android.Manifest
 import android.content.Context
 import android.util.Log
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -12,6 +13,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,15 +30,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.breakingsilence.R
+import com.example.breakingsilence.detection.HandGestureDetector
+import com.example.breakingsilence.detection.MLKitHandOverlay
 import com.example.breakingsilence.ui.theme.Turquoise
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.pose.PoseDetection
-import com.google.mlkit.vision.pose.PoseDetector
-import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
+import com.google.mlkit.vision.pose.Pose
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -50,8 +52,28 @@ fun ScanScreen(
     // State for detected hand pose
     var detectedPose by remember { mutableStateOf("") }
     
+    // State for detected pose object
+    var currentPose by remember { mutableStateOf<Pose?>(null) }
+    
+    // State for image dimensions
+    var imageWidth by remember { mutableStateOf(0) }
+    var imageHeight by remember { mutableStateOf(0) }
+    
+    // State for camera selector (front/back)
+    var cameraSelector by remember { mutableStateOf(CameraSelector.DEFAULT_BACK_CAMERA) }
+    
     // Camera permission state
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+    
+    // Hand gesture detector
+    val handGestureDetector = remember { HandGestureDetector() }
+    
+    // Clean up resources when the composable is disposed
+    DisposableEffect(handGestureDetector) {
+        onDispose {
+            handGestureDetector.close()
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -94,24 +116,73 @@ fun ScanScreen(
             ) {
                 if (cameraPermissionState.status.isGranted) {
                     // Camera is available, show camera preview
-                    CameraPreview(
-                        context = context,
-                        lifecycleOwner = lifecycleOwner,
-                        onPoseDetected = { pose ->
-                            detectedPose = pose
-                        }
-                    )
-                    
-                    // Overlay the viewfinder on top of the camera preview
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_viewfinder),
-                            contentDescription = "Camera viewfinder",
-                            modifier = Modifier.size(250.dp)
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CameraPreview(
+                            context = context,
+                            lifecycleOwner = lifecycleOwner,
+                            cameraSelector = cameraSelector,
+                            handGestureDetector = handGestureDetector,
+                            onPoseDetected = { pose, width, height ->
+                                currentPose = pose
+                                imageWidth = width
+                                imageHeight = height
+                                detectedPose = if (pose != null && HandGestureDetector.hasHandLandmarks(pose)) {
+                                    HandGestureDetector.identifyHandGesture(pose)
+                                } else {
+                                    "No hand detected"
+                                }
+                            }
                         )
+                        
+                        // Draw the hand pose overlay
+                        if (currentPose != null) {
+                            MLKitHandOverlay(
+                                pose = currentPose,
+                                imageWidth = imageWidth,
+                                imageHeight = imageHeight,
+                                detectedGesture = detectedPose
+                            )
+                        }
+                        
+                        // Overlay the viewfinder on top of the camera preview
+                        Box(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Camera viewfinder
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_viewfinder),
+                                    contentDescription = "Camera viewfinder",
+                                    modifier = Modifier.size(250.dp)
+                                )
+                            }
+                            
+                            // Camera switch button
+                            IconButton(
+                                onClick = {
+                                    cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                                        CameraSelector.DEFAULT_FRONT_CAMERA
+                                    } else {
+                                        CameraSelector.DEFAULT_BACK_CAMERA
+                                    }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                                    .size(48.dp)
+                                    .background(Turquoise.copy(alpha = 0.7f), CircleShape)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_switch_camera),
+                                    contentDescription = "Switch camera",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
                     }
                 } else {
                     // Request camera permission
@@ -190,16 +261,12 @@ fun ScanScreen(
 fun CameraPreview(
     context: Context,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
-    onPoseDetected: (String) -> Unit
+    cameraSelector: CameraSelector,
+    handGestureDetector: HandGestureDetector,
+    onPoseDetected: (Pose?, Int, Int) -> Unit
 ) {
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    
-    // Create pose detector
-    val options = AccuratePoseDetectorOptions.Builder()
-        .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
-        .build()
-    val poseDetector = remember { PoseDetection.getClient(options) }
     
     // Camera preview
     AndroidView(
@@ -207,7 +274,9 @@ fun CameraPreview(
             val previewView = PreviewView(ctx).apply {
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             }
-            
+            previewView
+        },
+        update = { previewView ->
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
                 
@@ -219,9 +288,10 @@ fun CameraPreview(
                 // Image analysis use case
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setTargetResolution(Size(640, 480)) // Set a reasonable resolution for hand detection
                     .build()
                     .also {
-                        it.setAnalyzer(cameraExecutor, PoseAnalyzer(poseDetector, onPoseDetected))
+                        it.setAnalyzer(cameraExecutor, PoseAnalyzer(handGestureDetector, onPoseDetected))
                     }
                 
                 try {
@@ -231,24 +301,25 @@ fun CameraPreview(
                     // Bind use cases to camera
                     cameraProvider.bindToLifecycle(
                         lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        cameraSelector,
                         preview,
                         imageAnalysis
                     )
                 } catch (e: Exception) {
                     Log.e("CameraPreview", "Use case binding failed", e)
                 }
-            }, ContextCompat.getMainExecutor(ctx))
-            
-            previewView
+            }, ContextCompat.getMainExecutor(context))
         },
         modifier = Modifier.fillMaxSize()
     )
 }
 
+/**
+ * Image analyzer that uses ML Kit for hand pose detection
+ */
 class PoseAnalyzer(
-    private val poseDetector: PoseDetector,
-    private val onPoseDetected: (String) -> Unit
+    private val handGestureDetector: HandGestureDetector,
+    private val onPoseDetected: (Pose?, Int, Int) -> Unit
 ) : ImageAnalysis.Analyzer {
     
     @androidx.camera.core.ExperimentalGetImage
@@ -260,26 +331,14 @@ class PoseAnalyzer(
                 imageProxy.imageInfo.rotationDegrees
             )
             
-            // Process the image with ML Kit
-            poseDetector.process(image)
-                .addOnSuccessListener { pose ->
-                    // Check if any pose was detected
-                    if (pose.allPoseLandmarks.isNotEmpty()) {
-                        // For simplicity, we're just detecting if a pose exists
-                        // In a real app, you would analyze the specific landmarks
-                        onPoseDetected("Hand pose detected")
-                    } else {
-                        onPoseDetected("No hand pose detected")
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("PoseAnalyzer", "Pose detection failed", e)
-                    onPoseDetected("Detection failed")
-                }
-                .addOnCompleteListener {
-                    // Close the image to avoid memory leaks
-                    imageProxy.close()
-                }
+            val width = mediaImage.width
+            val height = mediaImage.height
+            
+            // Process the image with ML Kit's pose detector
+            handGestureDetector.detectPose(image) { pose, w, h ->
+                onPoseDetected(pose, width, height)
+                imageProxy.close()
+            }
         } else {
             imageProxy.close()
         }
