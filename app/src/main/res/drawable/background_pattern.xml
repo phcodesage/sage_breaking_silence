@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#10CCCCCC"
+        android:pathData="M30,30m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- Heart hand gesture -->
+    <path
+        android:fillColor="#10CCCCCC"
+        android:pathData="M20,40C15,35 10,40 10,45C10,50 15,55 20,55C25,55 30,50 30,45C30,40 25,35 20,40M40,40C45,35 50,40 50,45C50,50 45,55 40,55C35,55 30,50 30,45C30,40 35,35 40,40" 
+        android:strokeWidth="1"
+        android:strokeColor="#20CCCCCC"
+        android:strokeLineCap="round" />
+    <!-- Clapping hands -->
+    <path
+        android:fillColor="#10CCCCCC"
+        android:pathData="M60,30C55,25 50,30 50,35C50,40 55,45 60,45C65,45 70,40 70,35C70,30 65,25 60,30M80,30C85,25 90,30 90,35C90,40 85,45 80,45C75,45 70,40 70,35C70,30 75,25 80,30" 
+        android:strokeWidth="1"
+        android:strokeColor="#20CCCCCC"
+        android:strokeLineCap="round" />
+    <!-- Open palm -->
+    <path
+        android:fillColor="#10CCCCCC"
+        android:pathData="M30,70C25,65 20,70 20,75C20,80 25,85 30,85C35,85 40,80 40,75C40,70 35,65 30,70M30,70C30,70 30,60 30,60M35,70C35,70 35,60 35,60M25,70C25,70 25,60 25,60M40,70C40,70 40,60 40,60M20,70C20,70 20,60 20,60" 
+        android:strokeWidth="1"
+        android:strokeColor="#20CCCCCC"
+        android:strokeLineCap="round" />
+    <!-- Fist -->
+    <path
+        android:fillColor="#10CCCCCC"
+        android:pathData="M70,70C65,65 60,70 60,75C60,80 65,85 70,85C75,85 80,80 80,75C80,70 75,65 70,70" 
+        android:strokeWidth="1"
+        android:strokeColor="#20CCCCCC"
+        android:strokeLineCap="round" />
+</vector>
